@@ -537,7 +537,7 @@ class HyperbolicRNNModel:
                 #px_dot_a = util.tf_dot(minus_p_plus_x, tf.nn.l2_normalize(A_mlr[cl]))
                 #logit = 2. / np.sqrt(c_val) * norm_a * tf.asinh(np.sqrt(c_val) * px_dot_a * lambda_px)
 
-                # Busemann function-based distance
+                # proposed
                 #minus_p_plus_x = util.tf_mob_add(-P_mlr[cl], output_ffnn, c_val)
                 #minus_p_plus_x_norm = util.tf_norm(minus_p_plus_x)
                 #dist_p_x = 2 * tf.atanh(minus_p_plus_x_norm)
@@ -548,7 +548,7 @@ class HyperbolicRNNModel:
                 #b_func = b_func_nume - b_func_deno
                 #logit = dist_p_x * b_func / minus_p_plus_x_norm
 
-                # Horospherical projection-based distance
+                # horo
                 x_norm = util.tf_norm(output_ffnn)
                 b_func_nume = tf.log(1 - tf.multiply(x_norm, x_norm))
                 w_minus_x = W_mlr[cl] / (1.0 * util.tf_norm(W_mlr[cl])) - output_ffnn
@@ -561,7 +561,7 @@ class HyperbolicRNNModel:
                 logit = tf.abs(MU * b_func - B_mlr[cl]) / (1.0 * MU)
                 #logit = (MU * b_func - B_mlr[cl]) / (1.0 * MU)
 
-                # Variant of Busemann function-based distance
+                # proposed variant
                 #minus_p_plus_x = util.tf_mob_add(-P_mlr[cl], output_ffnn, c_val)
                 #minus_p_plus_x_norm = util.tf_norm(minus_p_plus_x)
                 #b_func_nume = tf.log(1 - tf.multiply(minus_p_plus_x_norm, minus_p_plus_x_norm))
