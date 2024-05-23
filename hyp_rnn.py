@@ -76,6 +76,7 @@ parser.add_argument("--c", type=float, help="c", default=1.0)
 
 parser.add_argument("--restore_model", type=str2bool, help="y/n: restore model", default='n')
 parser.add_argument("--restore_from_path", type=str, help="", default="")
+parser.add_argument("--point_to_hyperplane_distance", type=str, help="gyro/horo/syms", default="syms")
 
 args = parser.parse_args()
 
@@ -168,6 +169,9 @@ reg_beta = args.reg_beta
 restore_model = args.restore_model
 assert  restore_model == False
 restore_from_path = args.restore_from_path
+
+point_to_hyperplane_distance = args.point_to_hyperplane_distance
+assert point_to_hyperplane_distance in ['gyro', 'horo', 'syms']
 
 if inputs_geom == 'hyp' or bias_geom == 'hyp' or ffnn_geom =='hyp' or mlr_geom == 'hyp':
     hyp_opt_str = hyp_opt + '_lrW' + str(lr_words) + '_lrFF' + str(lr_ffnn) + '_'
@@ -481,95 +485,80 @@ class HyperbolicRNNModel:
         ################## MLR ###################
         # output_ffnn is batch_size x before_mlr_dim
 
-        #A_mlr = []
-        #P_mlr = []
-        W_mlr = []
-
-        # horospherical projection
+        A_mlr = []
+        P_mlr = []
         MU_mlr = []
         B_mlr = []
         logits_list = []
         for cl in range(num_classes):
-            #A_mlr.append(tf.get_variable('A_mlr' + str(cl),
-            #                             dtype=dtype,
-            #                             shape=[1, before_mlr_dim],
-            #                             initializer=tf.contrib.layers.xavier_initializer()))
-            #eucl_vars += [A_mlr[cl]]
-
-            # added code (11 april 2024) ----------------------------------------------------
-            W_mlr.append(tf.get_variable('W_mlr' + str(cl),
+            A_mlr.append(tf.get_variable('A_mlr' + str(cl),
                                          dtype=dtype,
                                          shape=[1, before_mlr_dim],
                                          initializer=tf.contrib.layers.xavier_initializer()))
-            eucl_vars += [W_mlr[cl]]
-            # -------------------------------------------------------------------------------
-
-            # horospherical projection (12 april 2024) --------------------------------------
-            MU_mlr.append(tf.get_variable('MU_mlr' + str(cl),
-                                         dtype=dtype,
-                                         shape=(),
-                                         initializer=tf.contrib.layers.xavier_initializer()))
-            eucl_vars += [MU_mlr[cl]]
-
-            B_mlr.append(tf.get_variable('B_mlr' + str(cl),
-                                         dtype=dtype,
-                                         shape=(),
-                                         initializer=tf.contrib.layers.xavier_initializer()))
-            eucl_vars += [B_mlr[cl]]
-            #--------------------------------------------------------------------------------
-
-            #P_mlr.append(tf.get_variable('P_mlr' + str(cl),
-            #                             dtype=dtype,
-            #                             shape=[1, before_mlr_dim],
-            #                             initializer=tf.constant_initializer(0.0)))
+            eucl_vars += [A_mlr[cl]]            
 
             if mlr_geom == 'eucl':
+                P_mlr.append(tf.get_variable('P_mlr' + str(cl),
+                                         dtype=dtype,
+                                         shape=[1, before_mlr_dim],
+                                         initializer=tf.constant_initializer(0.0)))
+                
                 eucl_vars += [P_mlr[cl]]
                 logits_list.append(tf.reshape(util.tf_dot(-P_mlr[cl] + output_ffnn, A_mlr[cl]), [-1]))
 
             elif mlr_geom == 'hyp':
-                #hyp_vars += [P_mlr[cl]]
+                if point_to_hyperplane_distance == 'gyro':
+                    P_mlr.append(tf.get_variable('P_mlr' + str(cl),
+                                         dtype=dtype,
+                                         shape=[1, before_mlr_dim],
+                                         initializer=tf.constant_initializer(0.0)))
 
-                # original code
-                #minus_p_plus_x = util.tf_mob_add(-P_mlr[cl], output_ffnn, c_val)
-                #norm_a = util.tf_norm(A_mlr[cl])
-                #lambda_px = util.tf_lambda_x(minus_p_plus_x, c_val)
-                #px_dot_a = util.tf_dot(minus_p_plus_x, tf.nn.l2_normalize(A_mlr[cl]))
-                #logit = 2. / np.sqrt(c_val) * norm_a * tf.asinh(np.sqrt(c_val) * px_dot_a * lambda_px)
+                    hyp_vars += [P_mlr[cl]]
+                    
+                    minus_p_plus_x = util.tf_mob_add(-P_mlr[cl], output_ffnn, c_val)                    
+                    norm_a = util.tf_norm(A_mlr[cl])                    
+                    lambda_px = util.tf_lambda_x(minus_p_plus_x, c_val)                    
+                    px_dot_a = util.tf_dot(minus_p_plus_x, tf.nn.l2_normalize(A_mlr[cl]))
+                    logit = 2. / np.sqrt(c_val) * norm_a * tf.asinh(np.sqrt(c_val) * px_dot_a * lambda_px)
 
-                # proposed
-                #minus_p_plus_x = util.tf_mob_add(-P_mlr[cl], output_ffnn, c_val)
-                #minus_p_plus_x_norm = util.tf_norm(minus_p_plus_x)
-                #dist_p_x = 2 * tf.atanh(minus_p_plus_x_norm)
-                #b_func_nume = tf.log(1 - tf.multiply(minus_p_plus_x_norm, minus_p_plus_x_norm))
-                #minus_p_plus_x_minus_w = minus_p_plus_x - W_mlr[cl] / (1.0 * util.tf_norm(W_mlr[cl]))
-                #minus_p_plus_x_minus_w_norm = util.tf_norm(minus_p_plus_x_minus_w)
-                #b_func_deno = tf.log(tf.multiply(minus_p_plus_x_minus_w_norm,minus_p_plus_x_minus_w_norm))
-                #b_func = b_func_nume - b_func_deno
-                #logit = dist_p_x * b_func / minus_p_plus_x_norm
+                elif point_to_hyperplane_distance == 'syms':
+                    P_mlr.append(tf.get_variable('P_mlr' + str(cl),
+                                         dtype=dtype,
+                                         shape=[1, before_mlr_dim],
+                                         initializer=tf.constant_initializer(0.0)))
 
-                # horo
-                x_norm = util.tf_norm(output_ffnn)
-                b_func_nume = tf.log(1 - tf.multiply(x_norm, x_norm))
-                w_minus_x = W_mlr[cl] / (1.0 * util.tf_norm(W_mlr[cl])) - output_ffnn
-                w_minus_x_norm = util.tf_norm(w_minus_x)
-                b_func_deno = tf.log(tf.multiply(w_minus_x_norm,w_minus_x_norm))
-                b_func = b_func_nume - b_func_deno
-                ###logit = tf.abs(MU_mlr[cl] * MU_mlr[cl] * b_func - B_mlr[cl]) / (1.0 * MU_mlr[cl] * MU_mlr[cl])
-                MU = tf.exp(MU_mlr[cl])
-                # only one the two following is used
-                logit = tf.abs(MU * b_func - B_mlr[cl]) / (1.0 * MU)
-                #logit = (MU * b_func - B_mlr[cl]) / (1.0 * MU)
+                    hyp_vars += [P_mlr[cl]]
 
-                # proposed variant
-                #minus_p_plus_x = util.tf_mob_add(-P_mlr[cl], output_ffnn, c_val)
-                #minus_p_plus_x_norm = util.tf_norm(minus_p_plus_x)
-                #b_func_nume = tf.log(1 - tf.multiply(minus_p_plus_x_norm, minus_p_plus_x_norm))
-                #minus_p_plus_x_minus_w = minus_p_plus_x - W_mlr[cl] / (1.0 * util.tf_norm(W_mlr[cl]))
-                #minus_p_plus_x_minus_w_norm = util.tf_norm(minus_p_plus_x_minus_w)
-                #b_func_deno = tf.log(tf.multiply(minus_p_plus_x_minus_w_norm,minus_p_plus_x_minus_w_norm))
-                #b_func = b_func_nume - b_func_deno
-                #logit = b_func
+                    minus_p_plus_x = util.tf_mob_add(-P_mlr[cl], output_ffnn, c_val)
+                    minus_p_plus_x_norm = util.tf_norm(minus_p_plus_x)
+                    dist_p_x = 2 * tf.atanh(minus_p_plus_x_norm)
+                    b_func_nume = tf.log(1 - tf.multiply(minus_p_plus_x_norm, minus_p_plus_x_norm))
+                    minus_p_plus_x_minus_w = minus_p_plus_x - A_mlr[cl] / util.tf_norm(A_mlr[cl])
+                    minus_p_plus_x_minus_w_norm = util.tf_norm(minus_p_plus_x_minus_w)
+                    b_func_deno = tf.log(tf.multiply(minus_p_plus_x_minus_w_norm,minus_p_plus_x_minus_w_norm))
+                    b_func = b_func_nume - b_func_deno
+                    logit = dist_p_x * b_func / minus_p_plus_x_norm
+                else:
+                    MU_mlr.append(tf.get_variable('MU_mlr' + str(cl),
+                                         dtype=dtype,
+                                         shape=(),
+                                         initializer=tf.contrib.layers.xavier_initializer()))
+                    eucl_vars += [MU_mlr[cl]]
+
+                    B_mlr.append(tf.get_variable('B_mlr' + str(cl),  
+                                         dtype=dtype,
+                                         shape=(),
+                                         initializer=tf.contrib.layers.xavier_initializer()))
+                    eucl_vars += [B_mlr[cl]]
+
+                    x_norm = util.tf_norm(output_ffnn)
+                    b_func_nume = tf.log(1 - tf.multiply(x_norm, x_norm))
+                    w_minus_x = A_mlr[cl] / util.tf_norm(A_mlr[cl]) - output_ffnn
+                    w_minus_x_norm = util.tf_norm(w_minus_x)
+                    b_func_deno = tf.log(tf.multiply(w_minus_x_norm,w_minus_x_norm))
+                    b_func = b_func_nume - b_func_deno
+                    MU = tf.exp(MU_mlr[cl])                    
+                    logit = tf.abs(MU * b_func - B_mlr[cl]) / MU
 
                 logits_list.append(tf.reshape(logit, [-1]))
 
