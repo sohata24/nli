@@ -20,4 +20,4 @@ python hyp_rnn.py --base_name='' --dataset='SNLI' --inputs_geom='hyp' -word_dim=
 
 ## Acknowledgement
 
-The code in this repository is based on the open source implementation ([link](https://github.com/dalab/hyperbolic_nn)). If you use this code, please consider citing the paper [Hyperbolic Neural Network](https://arxiv.org/pdf/1805.09112).
+The code in this repository is based on this open source implementation ([link](https://github.com/dalab/hyperbolic_nn)). If you use our code, please consider citing the paper [Hyperbolic Neural Network](https://arxiv.org/pdf/1805.09112).
