@@ -14,7 +14,7 @@
 
 ## Experiments
 
-To reproduce the results of our network, run the following command
+To reproduce the result of our network on SNLI dataset, run the following command
 
 python hyp_rnn.py --base_name='' --dataset='SNLI' --inputs_geom='hyp' --word_dim=5 --word_init_avg_norm=0.001 --cell_type='gru' --cell_non_lin='id' --sent_geom='hyp' --bias_geom='hyp' --ffnn_geom='hyp' --ffnn_non_lin='id' --additional_features='dsq' --dropout=1.0 --before_mlr_dim=5 --mlr_geom='hyp' --reg_beta=0.0 --hyp_opt='rsgd' --lr_ffnn=0.01 --lr_words=0.1 --burnin='n' --proj_eps=1e-5 --batch_size=64 --root_path=./ --point_to_hyperplane_distance='syms'
 
